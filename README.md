@@ -4,6 +4,14 @@ A small Windows helper for running the T3 Code server at user logon when T3 Code
 
 This is a community workaround, not an official T3 Code component. T3 Code itself is installed separately and is not included here.
 
+## Relationship to T3 Code
+
+This helper launches the `t3` CLI distributed with the official [T3 Code desktop app](https://github.com/pingdotgg/t3code). T3 Code's native background-service installer supports Linux with systemd and macOS with launchd; it currently reports Windows (`win32`) as unsupported. This project uses Windows Task Scheduler as a user-logon alternative. It is not affiliated with or endorsed by the T3 Code maintainers.
+
+- [T3 Code repository](https://github.com/pingdotgg/t3code)
+- [T3 Code installation guide](https://github.com/pingdotgg/t3code/blob/main/docs/user/install.md)
+- [T3 Code background-service guide](https://github.com/pingdotgg/t3code/blob/main/docs/user/background-service.md)
+
 ## Requirements
 
 - Windows 10/11
