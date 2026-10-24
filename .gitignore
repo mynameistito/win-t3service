@@ -1,0 +1,17 @@
+# Runtime output and local service wrapper binary/config
+logs/
+*.log
+*.log.*
+*.exe
+t3service.xml
+run-t3.cmd
+
+# Local credentials and machine-specific files
+.env
+.env.*
+!.env.example
+*.local
+*.tmp
+*.bak
+Thumbs.db
+Desktop.ini
