@@ -23,6 +23,23 @@ function Get-T3Task {
     Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
 }
 
+function Get-T3RunnerProcess {
+    $runnerPattern = [regex]::Escape($runner)
+    Get-CimInstance Win32_Process | Where-Object {
+        $_.Name -match '^(powershell|pwsh)\.exe$' -and $_.CommandLine -match $runnerPattern
+    }
+}
+
+function Stop-T3RunnerProcessTree {
+    $taskkill = Join-Path $env:WINDIR 'System32\taskkill.exe'
+    foreach ($process in @(Get-T3RunnerProcess)) {
+        & $taskkill /PID $process.ProcessId /T /F | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            Write-Warning "Could not terminate task-owned process tree rooted at PID $($process.ProcessId)."
+        }
+    }
+}
+
 switch ($Action) {
     'install' {
         if (Get-T3Task) { throw "Task '$taskName' already exists. Use 't3service status' or 't3service uninstall'." }
@@ -54,13 +71,16 @@ switch ($Action) {
     }
     'stop' {
         if (-not (Get-T3Task)) { throw "Logon task is not installed. Run 't3service install'." }
+        Stop-T3RunnerProcessTree
         Stop-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 1
         Write-Host 'Stopped T3 Code server task.'
     }
     'restart' {
         if (-not (Get-T3Task)) { throw "Logon task is not installed. Run 't3service install'." }
+        Stop-T3RunnerProcessTree
         Stop-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
-        Start-Sleep -Seconds 2
+        Start-Sleep -Seconds 1
         Start-ScheduledTask -TaskName $taskName
         Write-Host 'Restarted T3 Code server task.'
     }
@@ -68,12 +88,24 @@ switch ($Action) {
         $task = Get-T3Task
         if (-not $task) { Write-Host 'T3 Code logon task: not installed'; exit 1 }
         $info = Get-ScheduledTaskInfo -TaskName $taskName
+        $runnerProcesses = @(Get-T3RunnerProcess)
+        $lastResultMeaning = switch ([uint32]$info.LastTaskResult) {
+            0 { 'Success' }
+            267009 { 'Task is currently running' }
+            267014 { 'Task was terminated by a stop request' }
+            default { 'See Task Scheduler result code' }
+        }
         Write-Host "Task:        $($task.TaskName)"
         Write-Host "State:       $($task.State)"
         Write-Host "Run as:      $($task.Principal.UserId)"
         Write-Host 'Trigger:     At user logon'
         Write-Host "Last run:    $($info.LastRunTime)"
-        Write-Host "Last result: $($info.LastTaskResult)"
+        Write-Host "Last result: $($info.LastTaskResult) ($lastResultMeaning)"
+        if ($runnerProcesses) {
+            Write-Host "T3 runner:   still alive (PID $($runnerProcesses.ProcessId -join ', '))"
+        } else {
+            Write-Host 'T3 runner:   no orphaned task process found'
+        }
         Write-Host "Logs:        $($serviceDir)\logs\t3-serve-*.log"
     }
     'logs' {
@@ -86,6 +118,7 @@ switch ($Action) {
         if (-not (Get-T3Task)) { Write-Host 'T3 Code logon task is not installed'; break }
         $answer = Read-Host 'Remove the logon task? T3 data and files will be kept (y/N)'
         if ($answer -notmatch '^(y|yes)$') { Write-Host 'Cancelled'; break }
+        Stop-T3RunnerProcessTree
         Stop-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
         Unregister-ScheduledTask -TaskName $taskName -Confirm:$false
         Write-Host 'Logon task removed. T3 data and .t3service files were kept.'

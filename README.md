@@ -44,7 +44,7 @@ t3service logs -Follow
 t3service uninstall
 ```
 
-The task starts at **user logon**, not before sign-in. `start` and `stop` control the task now; `uninstall` removes the task but keeps your T3 data and logs.
+The task starts at **user logon**, not before sign-in. `start` and `stop` control the task now; `uninstall` removes the task but keeps your T3 data and logs. Stop/restart terminates the task-owned T3 process tree, so wait for active agent turns to finish first. `status` reports if a runner process was left behind.
 
 ### Updating T3 Code
 
