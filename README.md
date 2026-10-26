@@ -41,10 +41,11 @@ t3service stop
 t3service restart
 t3service logs
 t3service logs -Follow
+t3service pair
 t3service uninstall
 ```
 
-The task starts at **user logon**, not before sign-in. `start` and `stop` control the task now; `uninstall` removes the task but keeps your T3 data and logs. Stop/restart terminates the task-owned T3 process tree, so wait for active agent turns to finish first. `status` reports if a runner process was left behind.
+The task starts at **user logon**, not before sign-in. It listens on `127.0.0.1:3773`; open `http://127.0.0.1:3773` in a browser on the host for local access. `start` prints this URL, and `status` reports it. If you need a fresh pairing code, run `t3service pair` and use the displayed link/QR promptly; T3 pairing tokens are single-use and expire after five minutes. Pair once—the browser session is retained separately, so a permanent code is neither needed nor stored. Stop/restart terminates the task-owned T3 process tree, so wait for active agent turns to finish first. `status` reports if a runner process was left behind.
 
 ### Updating T3 Code
 

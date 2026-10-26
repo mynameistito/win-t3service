@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('install', 'update', 'start', 'stop', 'restart', 'status', 'logs', 'uninstall', 'uninstall-service')]
+    [ValidateSet('install', 'update', 'start', 'stop', 'restart', 'status', 'pair', 'logs', 'uninstall', 'uninstall-service')]
     [string] $Action = 'status',
     [switch] $Follow
 )
@@ -11,6 +11,8 @@ $taskName = 'T3 Code Server (User Logon)'
 $serviceName = 'T3CodeServer'
 $serviceDir = Join-Path $HOME '.t3service'
 $runner = Join-Path $serviceDir 'run-t3-logon.ps1'
+$localUrl = 'http://127.0.0.1:3773'
+$t3Command = Join-Path $HOME '.t3\bin\t3.cmd'
 $account = [Security.Principal.WindowsIdentity]::GetCurrent().Name
 
 function Test-Administrator {
@@ -68,6 +70,7 @@ switch ($Action) {
         if (-not (Get-T3Task)) { throw "Logon task is not installed. Run 't3service install'." }
         Start-ScheduledTask -TaskName $taskName
         Write-Host 'Started T3 Code server task.'
+        Write-Host "Local UI:    $localUrl"
     }
     'stop' {
         if (-not (Get-T3Task)) { throw "Logon task is not installed. Run 't3service install'." }
@@ -101,12 +104,22 @@ switch ($Action) {
         Write-Host 'Trigger:     At user logon'
         Write-Host "Last run:    $($info.LastRunTime)"
         Write-Host "Last result: $($info.LastTaskResult) ($lastResultMeaning)"
+        Write-Host "Local UI:    $localUrl"
         if ($runnerProcesses) {
             Write-Host "T3 runner:   still alive (PID $($runnerProcesses.ProcessId -join ', '))"
         } else {
             Write-Host 'T3 runner:   no orphaned task process found'
         }
         Write-Host "Logs:        $($serviceDir)\logs\t3-serve-*.log"
+    }
+    'pair' {
+        if (-not (Get-T3Task) -or (Get-T3Task).State -ne 'Running') {
+            throw "T3 Code server is not running. Start it with 't3service start' first."
+        }
+        $env:T3CODE_HOME = Join-Path $HOME '.t3'
+        & $t3Command pair --label 'Local browser'
+        if ($LASTEXITCODE -ne 0) { throw "T3 pairing command exited with code $LASTEXITCODE." }
+        Write-Host 'Pairing tokens are single-use and expire after five minutes. Pair once; do not save or share the token.'
     }
     'logs' {
         $files = @(Get-ChildItem (Join-Path $serviceDir 'logs') -Filter 't3-serve-*.log' -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 2)
