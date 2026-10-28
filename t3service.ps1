@@ -1,9 +1,10 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('install', 'update', 'start', 'stop', 'restart', 'status', 'pair', 'logs', 'uninstall', 'uninstall-service')]
     [string] $Action = 'status',
-    [switch] $Follow
+    [switch] $Follow,
+    [Alias('h')]
+    [switch] $Help
 )
 
 $ErrorActionPreference = 'Stop'
@@ -14,6 +15,41 @@ $runner = Join-Path $serviceDir 'run-t3-logon.ps1'
 $localUrl = 'http://127.0.0.1:3773'
 $t3Command = Join-Path $HOME '.t3\bin\t3.cmd'
 $account = [Security.Principal.WindowsIdentity]::GetCurrent().Name
+
+if ($Help -or $Action -in @('help', '--help', '-h', '/?', '-help')) {
+    @'
+t3service - manage the T3 Code user-logon server
+
+Usage:
+  t3service <command>
+
+Commands:
+  help                 Show this help
+  status               Show task and runner status
+  start                Start the installed task now
+  stop                 Stop the task and its T3 process tree
+  restart              Restart the task and its T3 process tree
+  disable              Disable future logon starts; leave a running server alone
+  enable               Re-enable starts at user logon
+  install              Register the passwordless user-logon task
+  uninstall            Remove the task and stop its T3 process tree (confirmation required)
+  update               Refresh the task launcher
+  pair                 Create a short-lived, single-use browser pairing token
+  logs [-Follow]       Show recent task logs
+  uninstall-service    Remove the legacy Windows service (Administrator required)
+
+The task runs as the signed-in user; it does not store an account password.
+T3 data and credentials remain in %USERPROFILE%\.t3. Disabling/removing the
+task does not delete T3 data or helper files.
+'@ | Write-Host
+    exit 0
+}
+
+$validActions = @('install', 'update', 'start', 'stop', 'restart', 'status', 'pair', 'logs', 'disable', 'enable', 'uninstall', 'uninstall-service')
+if ($Action -notin $validActions) {
+    Write-Error "Unknown command '$Action'. Run 't3service help' or 't3service --help' for usage."
+    exit 2
+}
 
 function Test-Administrator {
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -72,6 +108,19 @@ switch ($Action) {
         Write-Host 'Started T3 Code server task.'
         Write-Host "Local UI:    $localUrl"
     }
+    'disable' {
+        $task = Get-T3Task
+        if (-not $task) { Write-Host 'T3 Code logon task is not installed'; break }
+        Disable-ScheduledTask -TaskName $taskName | Out-Null
+        Write-Host 'Disabled future user-logon starts. A currently running server was left untouched.'
+        Write-Host "Re-enable with 't3service enable'; remove the task with 't3service uninstall'."
+    }
+    'enable' {
+        $task = Get-T3Task
+        if (-not $task) { throw "Logon task is not installed. Run 't3service install'." }
+        Enable-ScheduledTask -TaskName $taskName | Out-Null
+        Write-Host 'Enabled T3 Code server at user logon. It will start at the next sign-in.'
+    }
     'stop' {
         if (-not (Get-T3Task)) { throw "Logon task is not installed. Run 't3service install'." }
         Stop-T3RunnerProcessTree
@@ -100,6 +149,7 @@ switch ($Action) {
         }
         Write-Host "Task:        $($task.TaskName)"
         Write-Host "State:       $($task.State)"
+        Write-Host "Auto-start:  $(if ($task.State -eq 'Disabled') { 'Disabled' } else { 'Enabled' })"
         Write-Host "Run as:      $($task.Principal.UserId)"
         Write-Host 'Trigger:     At user logon'
         Write-Host "Last run:    $($info.LastRunTime)"
@@ -129,7 +179,7 @@ switch ($Action) {
     }
     'uninstall' {
         if (-not (Get-T3Task)) { Write-Host 'T3 Code logon task is not installed'; break }
-        $answer = Read-Host 'Remove the logon task? T3 data and files will be kept (y/N)'
+        $answer = Read-Host 'Remove the logon task and stop its T3 process tree? T3 data and files will be kept (y/N)'
         if ($answer -notmatch '^(y|yes)$') { Write-Host 'Cancelled'; break }
         Stop-T3RunnerProcessTree
         Stop-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue

@@ -35,17 +35,21 @@ If the T3 desktop app's local environment is enabled, turn it off before startin
 ## Commands
 
 ```powershell
+t3service help
+t3service --help
 t3service status
 t3service start
 t3service stop
 t3service restart
+t3service disable
+t3service enable
 t3service logs
 t3service logs -Follow
 t3service pair
 t3service uninstall
 ```
 
-The task starts at **user logon**, not before sign-in. It listens on `127.0.0.1:3773`; open `http://127.0.0.1:3773` in a browser on the host for local access. `start` prints this URL, and `status` reports it. If you need a fresh pairing code, run `t3service pair` and use the displayed link/QR promptly; T3 pairing tokens are single-use and expire after five minutes. Pair once—the browser session is retained separately, so a permanent code is neither needed nor stored. Stop/restart terminates the task-owned T3 process tree, so wait for active agent turns to finish first. `status` reports if a runner process was left behind.
+The task starts at **user logon**, not before sign-in. It listens on `127.0.0.1:3773`; open `http://127.0.0.1:3773` in a browser on the host for local access. `start` prints this URL, and `status` reports it. Use `t3service disable` to prevent future logon starts without stopping a currently running server; use `t3service enable` to restore auto-start. `t3service uninstall` removes the scheduled task and stops its T3 process tree after confirmation. Both operations preserve T3 data and helper files. If you need a fresh pairing code, run `t3service pair` and use the displayed link/QR promptly; T3 pairing tokens are single-use and expire after five minutes. Pair once—the browser session is retained separately, so a permanent code is neither needed nor stored. Stop/restart/uninstall terminates the task-owned T3 process tree, so wait for active agent turns to finish first. `status` reports if a runner process was left behind.
 
 ### Updating T3 Code
 
