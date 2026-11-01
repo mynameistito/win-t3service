@@ -12,7 +12,14 @@ $taskName = 'T3 Code Server (User Logon)'
 $serviceName = 'T3CodeServer'
 $serviceDir = Join-Path $HOME '.t3service'
 $runner = Join-Path $serviceDir 'run-t3-logon.ps1'
-$localUrl = 'http://127.0.0.1:3773'
+. (Join-Path $PSScriptRoot 't3service-config.ps1')
+$config = Get-T3ServiceConfig
+# 0.0.0.0 and :: listen on every address; the local UI is still on loopback.
+$localHost = $config.Host
+if ($localHost -in @('0.0.0.0', '::')) { $localHost = '127.0.0.1' }
+elseif ($localHost.Contains(':')) { $localHost = "[$localHost]" }
+$localPort = $config.Port
+$localUrl = "http://${localHost}:$localPort"
 $t3Command = Join-Path $HOME '.t3\bin\t3.cmd'
 $account = [Security.Principal.WindowsIdentity]::GetCurrent().Name
 
@@ -161,6 +168,8 @@ switch ($Action) {
             Write-Host 'T3 runner:   no orphaned task process found'
         }
         Write-Host "Logs:        $($serviceDir)\logs\t3-serve-*.log"
+        $configLog = Join-Path $serviceDir 'logs\t3service-config.log'
+        if (Test-Path $configLog) { Get-Content $configLog | ForEach-Object { Write-Host "Config:      $_" } }
     }
     'pair' {
         if (-not (Get-T3Task) -or (Get-T3Task).State -ne 'Running') {
