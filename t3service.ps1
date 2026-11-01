@@ -12,27 +12,13 @@ $taskName = 'T3 Code Server (User Logon)'
 $serviceName = 'T3CodeServer'
 $serviceDir = Join-Path $HOME '.t3service'
 $runner = Join-Path $serviceDir 'run-t3-logon.ps1'
-# Mirror run-t3-logon.ps1: the same variables, validation, and defaults.
-function Test-T3ServiceHost([string]$value) {
-    # An IPv4 address in dotted-quad form, an IPv6 address, or a DNS host name.
-    if ($value -notmatch '^[A-Za-z0-9.:-]+$') { return $false }
-    $ip = $null
-    if ($value.Contains(':')) {
-        return [Net.IPAddress]::TryParse($value, [ref]$ip) -and $ip.AddressFamily -eq 'InterNetworkV6'
-    }
-    if ($value -match '^[0-9.]+$') {
-        return [Net.IPAddress]::TryParse($value, [ref]$ip) -and $ip.ToString() -eq $value
-    }
-    $label = '[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?'
-    return $value.Length -le 253 -and $value -match "^$label(\.$label)*$"
-}
-$localHost = '127.0.0.1'
-if ((Test-T3ServiceHost $env:T3SERVICE_HOST) -and $env:T3SERVICE_HOST -notin @('0.0.0.0', '::')) {
-    $localHost = if ($env:T3SERVICE_HOST.Contains(':')) { "[$($env:T3SERVICE_HOST)]" } else { $env:T3SERVICE_HOST }
-}
-$localPort = 3773
-$parsedPort = 0
-if ([int]::TryParse("$env:T3SERVICE_PORT", [ref]$parsedPort) -and $parsedPort -ge 1 -and $parsedPort -le 65535) { $localPort = $parsedPort }
+. (Join-Path $PSScriptRoot 't3service-config.ps1')
+$config = Get-T3ServiceConfig
+# 0.0.0.0 and :: listen on every address; the local UI is still on loopback.
+$localHost = $config.Host
+if ($localHost -in @('0.0.0.0', '::')) { $localHost = '127.0.0.1' }
+elseif ($localHost.Contains(':')) { $localHost = "[$localHost]" }
+$localPort = $config.Port
 $localUrl = "http://${localHost}:$localPort"
 $t3Command = Join-Path $HOME '.t3\bin\t3.cmd'
 $account = [Security.Principal.WindowsIdentity]::GetCurrent().Name
