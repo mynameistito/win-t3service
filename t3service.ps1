@@ -12,7 +12,15 @@ $taskName = 'T3 Code Server (User Logon)'
 $serviceName = 'T3CodeServer'
 $serviceDir = Join-Path $HOME '.t3service'
 $runner = Join-Path $serviceDir 'run-t3-logon.ps1'
-$localUrl = 'http://127.0.0.1:3773'
+# Mirror run-t3-logon.ps1: the same variables, validation, and defaults.
+$localHost = '127.0.0.1'
+if ($env:T3SERVICE_HOST -match '^[A-Za-z0-9.:-]+$' -and $env:T3SERVICE_HOST -notin @('0.0.0.0', '::')) {
+    $localHost = if ($env:T3SERVICE_HOST.Contains(':')) { "[$($env:T3SERVICE_HOST)]" } else { $env:T3SERVICE_HOST }
+}
+$localPort = 3773
+$parsedPort = 0
+if ([int]::TryParse("$env:T3SERVICE_PORT", [ref]$parsedPort) -and $parsedPort -ge 1 -and $parsedPort -le 65535) { $localPort = $parsedPort }
+$localUrl = "http://${localHost}:$localPort"
 $t3Command = Join-Path $HOME '.t3\bin\t3.cmd'
 $account = [Security.Principal.WindowsIdentity]::GetCurrent().Name
 
